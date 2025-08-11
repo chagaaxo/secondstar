@@ -1,8 +1,19 @@
 [
   {
-    "origin": ["http://localhost:5173", "https://your-production-domain.com"],
-    "method": ["GET", "POST", "PUT", "DELETE"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "x-goog-meta-*"]
+    "origin": [
+      "http://localhost:5173",
+      "https://secondstar-red.vercel.app",
+      "https://secondstar-aeb60.web.app",
+      "https://secondstar-aeb60.firebaseapp.com"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "Content-Length",
+      "X-Requested-With",
+      "x-goog-meta-*"
+    ],
+    "maxAgeSeconds": 3600
   }
 ]

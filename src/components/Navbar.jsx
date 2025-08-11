@@ -27,22 +27,15 @@ const Navbar = () => {
   const db = getFirestore();
   const currentUser = auth.currentUser;
 
-  // Enhanced logout function
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Sign out from Firebase
       await signOut(auth);
-      
-      // Clear local state
       logout();
       clearCart();
-      
-      // Close any open menus
       setShowMobileMenu(false);
       setIsHoveringProfile(false);
       
-      // Show success message
       toast.success('You have been logged out successfully', {
         position: "top-right",
         autoClose: 3000,
@@ -52,7 +45,6 @@ const Navbar = () => {
         draggable: true,
       });
       
-      // Redirect to home page
       navigate('/');
     } catch (error) {
       console.error('Logout error:', error);
@@ -69,7 +61,6 @@ const Navbar = () => {
     }
   };
 
-  // Fetch unread messages count
   useEffect(() => {
     if (!currentUser || !isLoggedIn) return;
 
@@ -90,10 +81,17 @@ const Navbar = () => {
   const handleSearch = (e) => {
     if (e.key === 'Enter' && search.trim()) {
       navigate(`/products?search=${encodeURIComponent(search.trim())}`);
+      setSearch('');
     }
   };
 
-  // Animation variants
+  const handleSearchButtonClick = () => {
+    if (search.trim()) {
+      navigate(`/products?search=${encodeURIComponent(search.trim())}`);
+      setSearch('');
+    }
+  };
+
   const mobileMenuVariants = {
     hidden: { opacity: 0, height: 0 },
     visible: { 
@@ -149,7 +147,7 @@ const Navbar = () => {
 
   return (
     <>
-      <div className="flex flex-col sticky top-0 z-50 bg-white">
+      <div className="flex flex-col sticky top-0 z-50 bg-white shadow-sm">
         {/* Top Bar */}
         <div className="flex items-center justify-between py-3 px-4 md:px-6 lg:px-8">
           {/* Mobile Menu Button */}
@@ -184,21 +182,31 @@ const Navbar = () => {
                 <i className="fa-solid fa-search text-gray-500"></i>
                 <input
                   type="text"
-                  placeholder="Cari barang..."
+                  placeholder="Search products..."
                   value={search}
-                  onChange={(e) => setSearch(e.value)}
+                  onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={handleSearch}
                   className="bg-transparent outline-none px-2 py-2 w-full text-sm md:text-base transition-all duration-200"
                 />
                 {search && (
-                  <motion.button 
-                    onClick={() => setSearch('')}
-                    className="text-gray-400 hover:text-gray-600"
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <i className="fa-solid fa-xmark"></i>
-                  </motion.button>
+                  <div className="flex items-center">
+                    <motion.button 
+                      onClick={() => setSearch('')}
+                      className="text-gray-400 hover:text-gray-600 mr-1"
+                      whileHover={{ scale: 1.2 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </motion.button>
+                    <motion.button
+                      onClick={handleSearchButtonClick}
+                      className="text-[#bd2c30] hover:text-[#88181c]"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <i className="fa-solid fa-arrow-right"></i>
+                    </motion.button>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -239,7 +247,7 @@ const Navbar = () => {
                     className="hidden md:block font-medium hover:underline text-sm lg:text-base"
                     activeClassName="text-[#bd2c30]"
                   >
-                    Jual
+                    Sell
                   </NavLink>
                 </motion.div>
                 
@@ -262,7 +270,7 @@ const Navbar = () => {
                 
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                   <NavLink to="/cart" className="p-1.5 md:p-2 text-gray-700 hover:text-[#bd2c30] relative">
-                    <i class="fa-solid fa-cart-shopping"></i>
+                    <i className="fa-solid fa-cart-shopping"></i>
                     {cartCount > 0 && (
                       <motion.span 
                         className="absolute -top-1 -right-1 bg-[#bd2c30] text-white text-xs rounded-full h-4 w-4 flex items-center justify-center"
@@ -309,19 +317,19 @@ const Navbar = () => {
                             transition={{ type: "spring" }}
                           />
                           <div>
-                            <div className="font-semibold text-sm">{user?.name || "User"}</div>
+                            <div className="font-semibold text-sm">{user?.displayName || "User"}</div>
                             <NavLink 
                               to="/profile" 
                               className="text-xs text-gray-500 cursor-pointer hover:underline"
                               whileHover={{ x: 2 }}
                             >
-                              Lihat profil
+                              View profile
                             </NavLink>
                           </div>
                         </div>
                         <NavLink to="/orders" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-sm transition-colors duration-150">
                           <i className="fa-solid fa-receipt w-5 text-gray-600"></i>
-                          Pembelian
+                          My Orders
                         </NavLink>
                         <NavLink to="/settings" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-sm transition-colors duration-150">
                           <i className="fa-solid fa-gear w-5 text-gray-600"></i>
@@ -358,20 +366,31 @@ const Navbar = () => {
               <i className="fa-solid fa-search text-gray-500"></i>
               <input
                 type="text"
-                placeholder="Cari barang..."
+                placeholder="Search products..."
                 value={search}
-                onChange={(e) => setSearch(e.value)}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearch}
                 className="bg-transparent outline-none px-2 py-2 w-full text-sm"
               />
               {search && (
-                <motion.button 
-                  onClick={() => setSearch('')}
-                  className="text-gray-400 hover:text-gray-600"
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <i className="fa-solid fa-xmark"></i>
-                </motion.button>
+                <div className="flex items-center">
+                  <motion.button 
+                    onClick={() => setSearch('')}
+                    className="text-gray-400 hover:text-gray-600 mr-1"
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <i className="fa-solid fa-xmark"></i>
+                  </motion.button>
+                  <motion.button
+                    onClick={handleSearchButtonClick}
+                    className="text-[#bd2c30] hover:text-[#88181c]"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <i className="fa-solid fa-arrow-right"></i>
+                  </motion.button>
+                </div>
               )}
             </div>
           </motion.div>
@@ -423,7 +442,7 @@ const Navbar = () => {
                         onClick={() => setShowMobileMenu(false)}
                         className="px-3 py-2 font-medium hover:bg-gray-100 rounded-lg text-sm"
                       >
-                        Jual
+                        Sell
                       </NavLink>
                     </motion.div>
                     <div className="flex space-x-2">
@@ -448,7 +467,7 @@ const Navbar = () => {
                           onClick={() => setShowMobileMenu(false)}
                           className="flex-1 px-3 py-2 text-center bg-gray-100 rounded-lg hover:bg-gray-200 text-sm relative"
                         >
-                          <i className="fa-solid fa-bag-shopping mr-2"></i>
+                          <i className="fa-solid fa-cart-shopping mr-2"></i>
                           Cart
                           {cartCount > 0 && (
                             <span className="absolute top-1 right-1 bg-[#bd2c30] text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
@@ -466,7 +485,7 @@ const Navbar = () => {
                           className="flex items-center px-3 py-2 hover:bg-gray-100 rounded-lg text-sm"
                         >
                           <i className="fa-solid fa-receipt w-5 text-gray-600 mr-2"></i>
-                          Pembelian
+                          My Orders
                         </NavLink>
                       </motion.div>
                       <motion.div whileHover={{ x: 2 }}>

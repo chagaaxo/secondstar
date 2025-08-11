@@ -147,7 +147,7 @@ const Navbar = () => {
 
   return (
     <>
-      <div className="flex flex-col sticky top-0 z-50 bg-white shadow-sm">
+      <div className="flex flex-col sticky top-0 z-50 bg-white">
         {/* Top Bar */}
         <div className="flex items-center justify-between py-3 px-4 md:px-6 lg:px-8">
           {/* Mobile Menu Button */}

@@ -317,7 +317,7 @@ const Navbar = () => {
                             transition={{ type: "spring" }}
                           />
                           <div>
-                            <div className="font-semibold text-sm">{user?.displayName || "User"}</div>
+                            <div className="font-semibold text-sm">{user?.name || "User"}</div>
                             <NavLink 
                               to="/profile" 
                               className="text-xs text-gray-500 cursor-pointer hover:underline"

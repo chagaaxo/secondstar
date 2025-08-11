@@ -214,30 +214,56 @@ const Settings = () => {
     try {
       const updates = {};
       const dbUpdates = {};
+      const now = new Date();
       
+      // Handle profile picture upload to ImgBB
       if (formData.photoURL && typeof formData.photoURL !== 'string') {
-        const storageRef = ref(storage, `profile_pictures/${user.uid}`);
-        await uploadBytes(storageRef, formData.photoURL);
-        const downloadURL = await getDownloadURL(storageRef);
+        const formDataImgBB = new FormData();
+        formDataImgBB.append('image', formData.photoURL);
+        
+        const response = await fetch('https://api.imgbb.com/1/upload?key=5c0156550435c0408de9ab844fd15e8e', {
+          method: 'POST',
+          body: formDataImgBB
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error('Failed to upload image to ImgBB');
+        }
+        
+        const downloadURL = data.data.url;
         updates.photoURL = downloadURL;
         dbUpdates.photoURL = downloadURL;
       }
       
+      // Handle display name update
       if (formData.name !== user.displayName) {
         updates.displayName = formData.name;
         dbUpdates.name = formData.name;
       }
       
-      dbUpdates.namaPenerima = formData.namaPenerima;
-      dbUpdates.nomorTelepon = formData.nomorTelepon;
-      dbUpdates.alamat = formData.alamat;
-      dbUpdates.detailLainnya = formData.detailLainnya;
-      dbUpdates.updatedAt = new Date();
+      // Basic profile fields
+      dbUpdates.namaPenerima = formData.namaPenerima || '';
+      dbUpdates.nomorTelepon = formData.nomorTelepon || '';
+      dbUpdates.alamat = formData.alamat || '';
+      dbUpdates.detailLainnya = formData.detailLainnya || '';
+      dbUpdates.updatedAt = now;
       
+      // Handle coordinates if they exist in formData
+      if (formData.coords) {
+        dbUpdates.coords = {
+          lat: Number(formData.coords.lat) || 0,
+          lng: Number(formData.coords.lng) || 0
+        };
+      }
+      
+      // Update auth profile if there are changes
       if (Object.keys(updates).length > 0) {
         await updateProfile(auth.currentUser, updates);
       }
       
+      // Update Firestore document
       await setDoc(doc(db, 'users', user.uid), dbUpdates, { merge: true });
       
       toast.success('Profile updated successfully!');

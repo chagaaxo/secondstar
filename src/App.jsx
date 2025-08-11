@@ -22,6 +22,7 @@ import Checkout from './interfaces/Checkout';
 import Products from './interfaces/Products';
 import Messages from './interfaces/Messages';
 import Profile from './interfaces/Profile';
+import Settings from './interfaces/Settings';
 
 // Components
 import Navbar from './components/Navbar'
@@ -49,6 +50,7 @@ const App = () => {
           <Route path='/checkout' element={<Checkout/>} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/profile/:userId?" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </div>
     </AuthProvider>

@@ -83,7 +83,15 @@ Copy your Firebase config and paste into firebase.js
 ---
 
 ## 🗺 Midtrans example payment
+
 [Midtrans Sandbox Simulator](https://simulator.sandbox.midtrans.com/)
+
+
+---
+
+## 🗺 Backend Code (IMPORTANT YOU'LL NEED IT FOR PAYMENT GATEAWAY)
+
+[Backend](https://github.com/chagaaxo/secondstar-backend)
 
 ---
 

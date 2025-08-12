@@ -67,7 +67,7 @@ const OrderConfirmation = () => {
   };
 
   useEffect(() => {
-    if (paymentStatus === 'completed' && order) {
+    if (paymentStatus === 'active' && order) {
       const markProductsAsSold = async () => {
         try {
           await axios.post('/api/orders/mark-sold', {

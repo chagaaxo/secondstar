@@ -77,7 +77,7 @@ Copy your Firebase config and paste into firebase.js
 2. Create an API key for Google Maps JavaScript API
 3. Enable billing (required by Google Maps)
 4. Restrict your key to your domain for security
-5. Add it to your .env as VITE_GOOGLE_MAPS_API_KEY
+5. Add it to your .env as REACT_APP_GOOGLE_MAPS_API_KEY
 
 ---
 

@@ -25,8 +25,8 @@ and enhanced with **Google Maps JavaScript API** for location-based features.
 - **Backend/Database:** [Firebase Firestore](https://firebase.google.com/docs/firestore)
 - **Authentication:** [Firebase Auth](https://firebase.google.com/docs/auth)
 - **Maps & Location:** [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript)
-- **Styling:** Tailwind CSS
-
+- **Styling:** Tailwind CSS, FontAwesome, and React Icons
+ 
 ---
 
 ## ⚙️ Installation & Setup
@@ -61,8 +61,8 @@ and enhanced with **Google Maps JavaScript API** for location-based features.
 
 ## 🔑 Firebase Setup
 
-1. Go to Firebase Console.
-2. Create a new project (e.g., secondstar).
+1. Go to Firebase Console
+2. Create a new project (e.g., secondstar)
 3. Enable:
      - Authentication (Email/Password, Google, etc.)
      - Firestore Database
@@ -74,15 +74,15 @@ Copy your Firebase config and paste into firebase.js
 ## 🗺 Google Maps Setup
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create an API key for Google Maps JavaScript API.
-3. Enable billing (required by Google Maps).
-4. Restrict your key to your domain for security.
-5. Add it to your .env as VITE_GOOGLE_MAPS_API_KEY.
+2. Create an API key for Google Maps JavaScript API
+3. Enable billing (required by Google Maps)
+4. Restrict your key to your domain for security
+5. Add it to your .env as VITE_GOOGLE_MAPS_API_KEY
 
 ---
 
 ## 📜 License
-This project is licensed under the MIT License — you are free to use, modify, and distribute.
+This project is licensed under the MIT License — you are free to use, modify, and distribute
 
 ---
 

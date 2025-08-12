@@ -23,6 +23,10 @@ import Products from './interfaces/Products';
 import Messages from './interfaces/Messages';
 import Profile from './interfaces/Profile';
 import Settings from './interfaces/Settings';
+import OrderConfirmation from './interfaces/OrderConfirmation';
+import PaymentQRIS from './interfaces/PaymentQRIS';
+import PaymentInstructions from './interfaces/PaymentInstructions';
+import SellerOrders from './interfaces/SellerOrders';
 
 // Components
 import Navbar from './components/Navbar'
@@ -43,7 +47,7 @@ const App = () => {
           <Route path='/login' element={<Login/>} />
           <Route path='/register' element={<Register/>} />
           <Route path='/place-order' element={<PlaceOrder/>} />
-          <Route path='/orders' element={<Orders/>} />
+          <Route path="/orders" element={<Orders />} />
           <Route path='/seller-dashboard' element={<SellerDashboard/>} />
           <Route path='/setaddress' element={<SetAddress/>} />
           <Route path='/sell' element={<Sell/>} />
@@ -51,6 +55,10 @@ const App = () => {
           <Route path="/messages" element={<Messages />} />
           <Route path="/profile/:userId?" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/order-confirmation" element={<OrderConfirmation />} />
+          <Route path="/payment-qris" element={<PaymentQRIS />} />
+          <Route path="/payment-instructions" element={<PaymentInstructions />} />
+          <Route path="/seller-orders" element={<SellerOrders />} />
         </Routes>
       </div>
     </AuthProvider>

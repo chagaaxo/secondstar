@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { Helmet } from 'react-helmet';
 import { toast } from 'react-toastify';
+import { useLocation } from 'react-router-dom';
 import 'react-toastify/dist/ReactToastify.css';
 import axios from 'axios';
 
@@ -18,6 +19,8 @@ const Checkout = () => {
     paymentMethod: 'qris',
     bankCode: ''
   });
+  const location = useLocation();
+  const [paymentError, setPaymentError] = useState(null);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('id-ID', {
@@ -37,81 +40,144 @@ const Checkout = () => {
 
   const handlePlaceOrder = async () => {
     if (!formData.name || !formData.email || !formData.address || !formData.phone) {
-      toast.error('Please fill all required fields');
+      toast.error('Harap isi semua field yang wajib diisi');
+      return;
+    }
+
+    // Validate phone number
+    if (!/^[0-9]{10,13}$/.test(formData.phone)) {
+      toast.error('Nomor telepon harus 10-13 digit angka');
       return;
     }
 
     setLoading(true);
+    setPaymentError(null);
 
     try {
-      // Create order in your database
-      const orderData = {
-        customer: {
-          name: formData.name,
-          email: formData.email,
+      // Prepare items
+      const items = cart.map(item => ({
+        id: item.id,
+        price: parseInt(item.price),
+        quantity: item.quantity,
+        name: item.title.slice(0, 50)
+      }));
+
+      // Calculate amounts
+      const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const shippingFee = subtotal > 100000 ? 0 : 10000;
+      const totalAmount = subtotal + shippingFee;
+
+      // Customer details
+      const customer_details = {
+        first_name: formData.name.split(' ')[0] || 'Customer',
+        last_name: formData.name.split(' ').slice(1).join(' ') || '.',
+        email: formData.email,
+        phone: formData.phone,
+        billing_address: {
           address: formData.address,
-          phone: formData.phone
+          city: 'Unknown',
+          postal_code: '00000',
+          country_code: 'IDN'
         },
-        items: cart.map(item => ({
-          productId: item.id,
-          quantity: item.quantity,
-          price: item.price
-        })),
-        total: cartTotal > 100000 ? cartTotal : cartTotal + 10000,
-        paymentMethod: formData.paymentMethod,
-        bankCode: formData.bankCode || null,
-        status: 'pending'
+        shipping_address: {
+          address: formData.address,
+          city: 'Unknown',
+          postal_code: '00000',
+          country_code: 'IDN'
+        }
       };
 
-      // First save to your database
-      const orderResponse = await axios.post('/api/orders', orderData);
-      const orderId = orderResponse.data.orderId;
+      // Create order data
+      const orderData = {
+        customer_details,
+        item_details: [
+          ...items,
+          ...(shippingFee > 0 ? [{
+            id: 'SHIPPING',
+            price: shippingFee,
+            quantity: 1,
+            name: 'Biaya Pengiriman'
+          }] : [])
+        ],
+        transaction_details: {
+          order_id: `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          gross_amount: totalAmount
+        },
+        callbacks: {
+          finish: `${window.location.origin}/order-confirmation`,
+          error: `${window.location.origin}/checkout?error=payment_failed`,
+          pending: `${window.location.origin}/order-pending`
+        },
+        notifications: {
+          enabled: true,
+          callback_url: `http://localhost:5173/api/payments/midtrans-notification`
+        }
+      };
 
-      // Process payment based on selected method
-      let paymentResponse;
-      
-      if (formData.paymentMethod === 'qris') {
-        paymentResponse = await axios.post('/api/payments/qris', {
-          orderId,
-          amount: cartTotal,
-          customerEmail: formData.email
-        });
-      } else if (formData.paymentMethod === 'bank_transfer') {
-        paymentResponse = await axios.post('/api/payments/bank-transfer', {
-          orderId,
-          amount: cartTotal,
-          bankCode: formData.bankCode
-        });
-      } else if (formData.paymentMethod === 'credit_card') {
-        paymentResponse = await axios.post('/api/payments/credit-card', {
-          orderId,
-          amount: cartTotal,
-          cardDetails: {} // In a real app, you'd use a payment processor SDK for this
-        });
+      // Add payment method specific data
+      switch (formData.paymentMethod) {
+        case 'bank_transfer':
+          orderData.payment_type = 'bank_transfer';
+          orderData.bank_transfer = { bank: formData.bankCode };
+          break;
+        case 'credit_card':
+          orderData.payment_type = 'credit_card';
+          orderData.credit_card = { 
+            secure: true,
+            save_card: false
+          };
+          break;
+        case 'gopay':
+          orderData.payment_type = 'gopay';
+          break;
+        default: // qris
+          orderData.payment_type = 'qris';
       }
 
-      // Handle payment response
-      if (paymentResponse.data.success) {
-        if (formData.paymentMethod === 'qris' || formData.paymentMethod === 'bank_transfer') {
-          // Redirect to payment instructions page with payment data
-          navigate('/payment-instructions', {
-            state: {
-              paymentData: paymentResponse.data.data,
-              orderId
-            }
-          });
-        } else {
-          // For credit cards, if payment is successful immediately
-          toast.success('Payment successful! Order placed.');
-          clearCart();
-          navigate('/order-confirmation', { state: { orderId } });
-        }
+      // Process payment
+      const { data } = await axios.post('/api/payments/midtrans-transaction', orderData);
+
+      // Handle different payment methods
+      if (data.redirect_url) {
+        // For credit card, GoPay, etc.
+        window.location.href = data.redirect_url;
+      } else if (data.payment_type === 'bank_transfer') {
+        // For bank transfers
+        navigate('/payment-instructions', { 
+          state: { 
+            paymentData: data, 
+            orderId: orderData.transaction_details.order_id 
+          } 
+        });
+      } else if (data.payment_type === 'qris') {
+        // For QRIS
+        navigate('/payment-qris', { 
+          state: { 
+            qrCodeUrl: data.actions[0].url, 
+            orderId: orderData.transaction_details.order_id 
+          } 
+        });
       } else {
-        throw new Error(paymentResponse.data.message || 'Payment failed');
+        // For other cases
+        clearCart();
+        navigate('/order-confirmation', { 
+          state: { orderId: orderData.transaction_details.order_id } 
+        });
       }
     } catch (error) {
-      console.error('Checkout error:', error);
-      toast.error(error.response?.data?.message || 'Failed to process order. Please try again.');
+      console.error('Payment error:', error);
+      let errorMsg = 'Pembayaran gagal, silahkan coba lagi';
+      
+      if (error.response) {
+        if (error.response.data.error_messages) {
+          errorMsg = error.response.data.error_messages.join(', ');
+        } else if (error.response.data.message) {
+          errorMsg = error.response.data.message;
+        }
+      }
+      
+      setPaymentError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -119,247 +185,175 @@ const Checkout = () => {
 
   const banks = [
     { code: 'bca', name: 'BCA' },
-    { code: 'mandiri', name: 'Mandiri' },
     { code: 'bni', name: 'BNI' },
     { code: 'bri', name: 'BRI' },
-    { code: 'permata', name: 'Permata' },
-    { code: 'cimb', name: 'CIMB Niaga' },
-    { code: 'danamon', name: 'Danamon' }
+    { code: 'mandiri', name: 'Mandiri' },
+    { code: 'permata', name: 'Permata' }
   ];
 
   return (
     <>
       <Helmet>
-        <title>Checkout | Our Store</title>
+        <title>Checkout | Toko Kami</title>
       </Helmet>
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+      {paymentError && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{paymentError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Checkout</h1>
         
         {cart.length === 0 ? (
           <div className="text-center py-12">
-            <h2 className="text-lg font-medium text-gray-900">Your cart is empty</h2>
+            <h2 className="text-lg font-medium text-gray-900">Keranjang Anda kosong</h2>
             <button
               onClick={() => navigate('/products')}
-              className="mt-4 px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+              className="mt-4 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
             >
-              Continue Shopping
+              Lanjut Belanja
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-              <div className="bg-white rounded-lg shadow overflow-hidden p-6 mb-8">
-                <h2 className="text-xl font-semibold mb-4">Shipping Information</h2>
-                <form className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            {/* Customer Information */}
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow overflow-hidden p-6">
+                <h2 className="text-xl font-semibold mb-4">Informasi Pengiriman</h2>
+                <div className="space-y-4">
                   <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                      Full Name *
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama Lengkap *
                     </label>
                     <input
                       type="text"
-                      id="name"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
                       required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black"
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-black"
                     />
                   </div>
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email Address *
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
                     </label>
                     <input
                       type="email"
-                      id="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
                       required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black"
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-black"
                     />
                   </div>
                   <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                      Shipping Address *
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Alamat Pengiriman *
                     </label>
                     <textarea
-                      id="address"
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      rows="3"
+                      rows={3}
                       required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black"
-                    ></textarea>
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-black"
+                    />
                   </div>
                   <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                      Phone Number *
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nomor Telepon *
                     </label>
                     <input
                       type="tel"
-                      id="phone"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
                       required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black"
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-black"
                     />
                   </div>
-                </form>
+                </div>
               </div>
 
+              {/* Payment Method */}
               <div className="bg-white rounded-lg shadow overflow-hidden p-6">
-                <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
+                <h2 className="text-xl font-semibold mb-4">Metode Pembayaran</h2>
                 <div className="space-y-4">
-                  <div className="flex items-start">
-                    <input
-                      id="qris"
-                      name="paymentMethod"
-                      type="radio"
-                      value="qris"
-                      checked={formData.paymentMethod === 'qris'}
-                      onChange={handleInputChange}
-                      className="focus:ring-black h-4 w-4 text-black border-gray-300 mt-1"
-                    />
-                    <label htmlFor="qris" className="ml-3 block text-sm font-medium text-gray-700">
-                      <div>QRIS</div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Pay with any mobile banking app that supports QRIS
-                      </p>
-                    </label>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <input
-                      id="bank_transfer"
-                      name="paymentMethod"
-                      type="radio"
-                      value="bank_transfer"
-                      checked={formData.paymentMethod === 'bank_transfer'}
-                      onChange={handleInputChange}
-                      className="focus:ring-black h-4 w-4 text-black border-gray-300 mt-1"
-                    />
-                    <label htmlFor="bank_transfer" className="ml-3 block text-sm font-medium text-gray-700">
-                      <div>Bank Transfer</div>
-                      {formData.paymentMethod === 'bank_transfer' && (
-                        <div className="mt-2">
-                          <select
-                            name="bankCode"
-                            value={formData.bankCode}
-                            onChange={handleInputChange}
-                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black text-sm"
-                            required
-                          >
-                            <option value="">Select Bank</option>
-                            {banks.map(bank => (
-                              <option key={bank.code} value={bank.code}>{bank.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <input
-                      id="credit_card"
-                      name="paymentMethod"
-                      type="radio"
-                      value="credit_card"
-                      checked={formData.paymentMethod === 'credit_card'}
-                      onChange={handleInputChange}
-                      className="focus:ring-black h-4 w-4 text-black border-gray-300 mt-1"
-                    />
-                    <label htmlFor="credit_card" className="ml-3 block text-sm font-medium text-gray-700">
-                      <div>Credit/Debit Card (VISA, Mastercard)</div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Secure payment processed by our payment gateway
-                      </p>
-                    </label>
-                  </div>
-                  
-                  {formData.paymentMethod === 'credit_card' && (
-                    <div className="ml-7 mt-2 p-4 border border-gray-200 rounded-md bg-gray-50">
-                      <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Card Number
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="1234 5678 9012 3456"
-                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black text-sm"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Expiry Date
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="MM/YY"
-                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            CVV
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="123"
-                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-black focus:border-black text-sm"
-                          />
-                        </div>
-                      </div>
+                  {[
+                    { id: 'qris', label: 'QRIS', desc: 'Bayar dengan aplikasi mobile banking yang mendukung QRIS' },
+                    { id: 'bank_transfer', label: 'Transfer Bank', desc: '' },
+                    { id: 'credit_card', label: 'Kartu Kredit/Debit', desc: 'Pembayaran aman melalui Midtrans' },
+                    { id: 'gopay', label: 'GoPay', desc: 'Bayar menggunakan akun GoPay Anda' }
+                  ].map((method) => (
+                    <div key={method.id} className="flex items-start">
+                      <input
+                        id={method.id}
+                        name="paymentMethod"
+                        type="radio"
+                        value={method.id}
+                        checked={formData.paymentMethod === method.id}
+                        onChange={handleInputChange}
+                        className="focus:ring-black h-4 w-4 text-black border-gray-300 mt-1"
+                      />
+                      <label htmlFor={method.id} className="ml-3 block text-sm font-medium text-gray-700">
+                        <div>{method.label}</div>
+                        {method.desc && <p className="text-xs text-gray-500 mt-1">{method.desc}</p>}
+                      </label>
+                    </div>
+                  ))}
+
+                  {formData.paymentMethod === 'bank_transfer' && (
+                    <div className="ml-7 mt-2">
+                      <select
+                        name="bankCode"
+                        value={formData.bankCode}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                        required
+                      >
+                        <option value="">Pilih Bank</option>
+                        {banks.map(bank => (
+                          <option key={bank.code} value={bank.code}>{bank.name}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
-                  
-                  <div className="flex items-start">
-                    <input
-                      id="cod"
-                      name="paymentMethod"
-                      type="radio"
-                      value="cod"
-                      checked={formData.paymentMethod === 'cod'}
-                      onChange={handleInputChange}
-                      className="focus:ring-black h-4 w-4 text-black border-gray-300 mt-1"
-                    />
-                    <label htmlFor="cod" className="ml-3 block text-sm font-medium text-gray-700">
-                      <div>Cash on Delivery (COD)</div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Available in selected areas only. Additional fee may apply.
-                      </p>
-                    </label>
-                  </div>
                 </div>
               </div>
             </div>
 
+            {/* Order Summary */}
             <div>
-              <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="bg-white rounded-lg shadow overflow-hidden sticky top-4">
                 <div className="border-b border-gray-200 px-4 py-5 sm:px-6">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Order Summary
-                  </h3>
+                  <h3 className="text-lg font-medium">Ringkasan Pesanan</h3>
                 </div>
                 <div className="p-6">
                   <ul className="divide-y divide-gray-200 mb-6">
                     {cart.map((item) => (
                       <li key={item.id} className="py-4 flex">
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
                           <img
                             src={item.image || '/placeholder-product.jpg'}
                             alt={item.title}
-                            className="w-16 h-16 rounded-md object-cover"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                         <div className="ml-4 flex-1">
                           <div className="flex justify-between text-base font-medium text-gray-900">
-                            <h3>{item.title}</h3>
+                            <h3 className="line-clamp-1">{item.title}</h3>
                             <p>{formatPrice(item.price * item.quantity)}</p>
                           </div>
                           <p className="mt-1 text-sm text-gray-500">
@@ -369,29 +363,33 @@ const Checkout = () => {
                       </li>
                     ))}
                   </ul>
+
                   <div className="border-t border-gray-200 pt-4">
                     <div className="flex justify-between text-base font-medium text-gray-900 mb-2">
                       <p>Subtotal</p>
                       <p>{formatPrice(cartTotal)}</p>
                     </div>
                     <div className="flex justify-between text-base font-medium text-gray-900 mb-2">
-                      <p>Shipping</p>
-                      <p>{cartTotal > 100000 ? 'FREE' : formatPrice(10000)}</p>
+                      <p>Ongkos Kirim</p>
+                      <p>{cartTotal > 100000 ? 'GRATIS' : formatPrice(10000)}</p>
                     </div>
                     <div className="flex justify-between text-lg font-bold text-gray-900 mt-4 pt-4 border-t border-gray-200">
                       <p>Total</p>
                       <p>{formatPrice(cartTotal > 100000 ? cartTotal : cartTotal + 10000)}</p>
                     </div>
                   </div>
+
                   <button
                     onClick={handlePlaceOrder}
                     disabled={loading}
-                    className={`w-full mt-6 bg-black text-white py-3 px-4 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full mt-6 bg-black text-white py-3 px-4 rounded-md hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
+                      loading ? 'opacity-70 cursor-not-allowed' : ''
+                    }`}
                   >
-                    {loading ? 'Processing...' : 'Place Order'}
+                    {loading ? 'Memproses...' : 'Buat Pesanan'}
                   </button>
                   <p className="text-xs text-gray-500 mt-3 text-center">
-                    By placing your order, you agree to our Terms of Service and Privacy Policy.
+                    Dengan membuat pesanan, Anda menyetujui Syarat & Ketentuan kami.
                   </p>
                 </div>
               </div>

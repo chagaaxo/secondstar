@@ -297,6 +297,13 @@ const SellerDashboard = () => {
                   <FiSettings className="mr-3" />
                   Settings
                 </NavLink>
+                <NavLink
+                  to="/seller-orders"
+                  className={({isActive}) => `flex items-center px-3 py-3 rounded-lg ${isActive ? 'bg-[#bd2c3144] text-[#bd2c30]' : 'hover:bg-gray-100'}`}
+                >
+                  <FiShoppingBag className="mr-3" />
+                  Orders
+                </NavLink>
               </nav>
             </div>
           </motion.div>
@@ -352,6 +359,13 @@ const SellerDashboard = () => {
             >
               <FiSettings className="mr-3" />
               Settings
+            </NavLink>
+            <NavLink
+              to="/seller-orders"
+              className={({isActive}) => `flex items-center px-3 py-3 rounded-lg ${isActive ? 'bg-[#bd2c3144] text-[#bd2c30]' : 'hover:bg-gray-100'}`}
+            >
+              <FiShoppingBag className="mr-3" />
+              Orders
             </NavLink>
           </nav>
         </div>

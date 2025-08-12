@@ -24,6 +24,7 @@ and enhanced with **Google Maps JavaScript API** for location-based features.
 - **Frontend:** [Vite](https://vitejs.dev/) + [React](https://react.dev/)
 - **Backend/Database:** [Firebase Firestore](https://firebase.google.com/docs/firestore)
 - **Authentication:** [Firebase Auth](https://firebase.google.com/docs/auth)
+- **Payment Gateaway:** [Midtrans](https://midtrans.com/en)
 - **Maps & Location:** [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript)
 - **Styling:** Tailwind CSS, FontAwesome, and React Icons
  
@@ -81,12 +82,19 @@ Copy your Firebase config and paste into firebase.js
 
 ---
 
+## 🗺 Midtrans example payment
+[Midtrans Sandbox Simulator](https://simulator.sandbox.midtrans.com/)
+
+---
+
 ## 📜 License
+
 This project is licensed under the MIT License — you are free to use, modify, and distribute
 
 ---
 
 ## 💌 Acknowledgements
+
 - [Vite](https://vitejs.dev/)
 - [React](https://react.dev/)
 - [Firebase](https://firebase.google.com/)

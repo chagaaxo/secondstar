@@ -92,3 +92,8 @@ This project is licensed under the MIT License — you are free to use, modify, 
 - [Firebase](https://firebase.google.com/)
 - [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript)
 - [Tailwind CSS](https://tailwindcss.com/)
+
+---
+
+## 🌊 Live Demo
+[**Second STAR**](https://secondstar-red.vercel.app/)

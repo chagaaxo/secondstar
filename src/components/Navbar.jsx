@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CartContext } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { getFirestore, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,6 +19,7 @@ const Navbar = () => {
   const [isHoveringProfile, setIsHoveringProfile] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   const { isLoggedIn, user, login, logout } = useAuth();
   const { cartCount, clearCart } = useContext(CartContext);
@@ -35,6 +36,7 @@ const Navbar = () => {
       clearCart();
       setShowMobileMenu(false);
       setIsHoveringProfile(false);
+      setUserProfile(null);
       
       toast.success('You have been logged out successfully', {
         position: "top-right",
@@ -64,18 +66,28 @@ const Navbar = () => {
   useEffect(() => {
     if (!currentUser || !isLoggedIn) return;
 
-    const q = query(
+    const userRef = doc(db, 'users', currentUser.uid);
+    const unsubscribeProfile = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        setUserProfile(doc.data());
+      }
+    });
+
+    const messagesQuery = query(
       collection(db, 'messages'),
       where('participants', 'array-contains', currentUser.uid),
       where('seen', '==', false),
       where('senderId', '!=', currentUser.uid)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
       setUnreadCount(snapshot.size);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeProfile();
+      unsubscribeMessages();
+    };
   }, [currentUser, db, isLoggedIn]);
 
   const handleSearch = (e) => {
@@ -291,7 +303,7 @@ const Navbar = () => {
                   onMouseLeave={() => setIsHoveringProfile(false)}
                 >
                   <motion.img
-                    src={user?.photoURL || assets.userAvatar}
+                    src={userProfile?.photoURL || user?.photoURL || assets.userAvatar}
                     alt="Profile"
                     className="w-8 h-8 rounded-full cursor-pointer border border-gray-200"
                     whileHover={{ scale: 1.1 }}
@@ -309,7 +321,7 @@ const Navbar = () => {
                       >
                         <div className="flex items-center gap-3 px-4 py-3 border-b">
                           <motion.img
-                            src={user?.photoURL || assets.userAvatar}
+                            src={userProfile?.photoURL || user?.photoURL || assets.userAvatar}
                             alt="Profile"
                             className="w-10 h-10 rounded-full"
                             initial={{ scale: 0.9 }}
@@ -317,7 +329,7 @@ const Navbar = () => {
                             transition={{ type: "spring" }}
                           />
                           <div>
-                            <div className="font-semibold text-sm">{user?.name || "User"}</div>
+                            <div className="font-semibold text-sm">{userProfile?.name || user?.name || "User"}</div>
                             <NavLink 
                               to="/profile" 
                               className="text-xs text-gray-500 cursor-pointer hover:underline"

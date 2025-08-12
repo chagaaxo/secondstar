@@ -5,39 +5,39 @@ import { getAuth } from "firebase/auth";
 
 // Constants for dropdown options
 const CATEGORIES = [
-  { value: "fashion", label: "Fashion" },
-  { value: "electronics", label: "Electronics" },
-  { value: "home", label: "Home & Living" },
-  { value: "beauty", label: "Beauty" },
-  { value: "sports", label: "Sports" },
+  { value: "Fashion", label: "Fashion" },
+  { value: "Electronics", label: "Electronics" },
+  { value: "Home & Living", label: "Home & Living" },
+  { value: "Beauty", label: "Beauty" },
+  { value: "Sports", label: "Sports" },
 ];
 
 const CONDITIONS = [
-  { value: "new", label: "Baru" },
-  { value: "like_new", label: "Seperti Baru" },
-  { value: "used", label: "Bekas" },
-  { value: "defective", label: "Bermasalah" },
+  { value: "Baru", label: "Baru" },
+  { value: "Seperti Baru", label: "Seperti Baru" },
+  { value: "Bekas", label: "Bekas" },
+  { value: "Bermasalah", label: "Bermasalah" },
 ];
 
 const STYLES = [
-  { value: "casual", label: "Casual" },
-  { value: "formal", label: "Formal" },
-  { value: "sporty", label: "Sporty" },
-  { value: "vintage", label: "Vintage" },
-  { value: "streetwear", label: "Streetwear" },
+  { value: "Casual", label: "Casual" },
+  { value: "Formal", label: "Formal" },
+  { value: "Sporty", label: "Sporty" },
+  { value: "Vintage", label: "Vintage" },
+  { value: "Streetwear", label: "Streetwear" },
 ];
 
 const COLORS = [
-  { value: "black", label: "Hitam" },
-  { value: "white", label: "Putih" },
-  { value: "red", label: "Merah" },
-  { value: "blue", label: "Biru" },
-  { value: "green", label: "Hijau" },
-  { value: "yellow", label: "Kuning" },
-  { value: "pink", label: "Pink" },
-  { value: "gray", label: "Abu-abu" },
-  { value: "brown", label: "Coklat" },
-  { value: "multicolor", label: "Warna-warni" },
+  { value: "Hitam", label: "Hitam" },
+  { value: "Putih", label: "Putih" },
+  { value: "Merah", label: "Merah" },
+  { value: "Biru", label: "Biru" },
+  { value: "Hijau", label: "Hijau" },
+  { value: "Kuning", label: "Kuning" },
+  { value: "Pink", label: "Pink" },
+  { value: "Abu-abu", label: "Abu-abu" },
+  { value: "Coklat", label: "Coklat" },
+  { value: "Warna-warni", label: "Warna-warni" },
 ];
 
 const MAX_IMAGES = 8;

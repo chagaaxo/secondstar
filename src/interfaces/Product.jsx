@@ -44,30 +44,41 @@ const Product = () => {
 
   useEffect(() => {
     const fetchProductData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const db = getFirestore();
+      
+      // Fetch product
+      const productRef = doc(db, 'products', productId);
+      const productSnapshot = await getDoc(productRef);
+      
+      if (productSnapshot.exists()) {
+        const productData = productSnapshot.data();
         
-        const db = getFirestore();
+        if (!productData.title || !productData.price) {
+          throw new Error('Product data is incomplete');
+        }
         
-        // Fetch product
-        const productRef = doc(db, 'products', productId);
-        const productSnapshot = await getDoc(productRef);
-        
-        if (productSnapshot.exists()) {
-          const productData = productSnapshot.data();
-          
-          if (!productData.title || !productData.price) {
-            throw new Error('Product data is incomplete');
+        // Fetch seller information
+        let sellerData = {};
+        if (productData.sellerId) {
+          const sellerRef = doc(db, 'users', productData.sellerId);
+          const sellerSnapshot = await getDoc(sellerRef);
+          if (sellerSnapshot.exists()) {
+            sellerData = sellerSnapshot.data();
           }
-          
-          setProduct({
-            id: productSnapshot.id,
-            photos: productData.photos?.length ? productData.photos : ['/placeholder-product.jpg'],
-            ...productData
-          });
+        }
+        
+        setProduct({
+          id: productSnapshot.id,
+          photos: productData.photos?.length ? productData.photos : ['/placeholder-product.jpg'],
+          ...productData,
+          seller: sellerData // Add seller data to product
+        });
 
-          // Fetch reviews
+        // Fetch reviews
           const reviewsQuery = query(
             collection(db, 'reviews'),
             where('productId', '==', productId)
@@ -373,9 +384,6 @@ const Product = () => {
                   ))}
                   <span className="ml-1 text-sm text-gray-600">(10)</span>
                 </div>
-                <span className="text-sm text-gray-600">
-                  {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                </span>
               </div>
             </div>
 
@@ -393,6 +401,42 @@ const Product = () => {
                   {product.discount}% OFF
                 </span>
               )}
+            </div>
+
+            {/* Seller Information */}
+            <div className="mb-6 p-4 border rounded-lg">
+              <h3 className="text-lg font-medium mb-3">Informasi Seller</h3>
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-full bg-gray-200 mr-3 overflow-hidden flex-shrink-0">
+                  {product.seller?.photoURL ? (
+                    <img 
+                      src={product.seller.photoURL} 
+                      alt={product.seller.displayName || 'Seller'} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium">{product.seller?.name || 'Seller'}</p>
+                  <p className="text-sm text-gray-500 mb-1">
+                    @{product.seller?.username || 'No username'}
+                  </p>
+                  {product.sellerId && (
+                    <button 
+                      onClick={() => navigate(`/products?seller=${product.sellerId}`)}
+                      className="text-sm text-[#bd2c30] hover:underline"
+                    >
+                      Lihat semua produk dari penjual ini
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Product Specifications */}

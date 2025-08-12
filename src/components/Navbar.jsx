@@ -255,6 +255,16 @@ const Navbar = () => {
               <>
                 <motion.div whileHover={{ y: -1 }}>
                   <NavLink 
+                    to="/products" 
+                    className="hidden md:block font-medium hover:underline text-sm lg:text-base"
+                    activeClassName="text-[#bd2c30]"
+                  >
+                    Products
+                  </NavLink>
+                </motion.div>
+                
+                <motion.div whileHover={{ y: -1 }}>
+                  <NavLink 
                     to="/seller-dashboard" 
                     className="hidden md:block font-medium hover:underline text-sm lg:text-base"
                     activeClassName="text-[#bd2c30]"
@@ -448,6 +458,16 @@ const Navbar = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col space-y-2">
+                    <motion.div whileHover={{ x: 2 }}>
+                      <NavLink 
+                        to="/products" 
+                        onClick={() => setShowMobileMenu(false)}
+                        className="flex items-center px-3 py-2 hover:bg-gray-100 rounded-lg text-sm"
+                      >
+                        <i className="fa-solid fa-box-open w-5 text-gray-600 mr-2"></i>
+                        Products
+                      </NavLink>
+                    </motion.div>
                     <motion.div whileHover={{ x: 2 }}>
                       <NavLink 
                         to="/seller-dashboard" 

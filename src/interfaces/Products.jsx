@@ -27,7 +27,6 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sellers, setSellers] = useState({});
-  const [reviews, setReviews] = useState({});
   const [hasMore, setHasMore] = useState(true);
   const [lastVisible, setLastVisible] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -37,28 +36,9 @@ const Products = () => {
   const [sortOption, setSortOption] = useState('newest');
   const [availableCategories, setAvailableCategories] = useState([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [maxPrice, setMaxPrice] = useState(10);
   const loadingRef = React.useRef(false);
 
   const db = getFirestore();
-
-  useEffect(() => {
-    const fetchMaxPrice = async () => {
-      try {
-        const productsRef = collection(db, 'products');
-        const q = query(productsRef, where('status', '==', 'active'), orderBy('price', 'desc'), limit(1));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const max = parseInt(querySnapshot.docs[0].data().price) || 1000000;
-          setMaxPrice(max);
-          setPriceRange([0, max]);
-        }
-      } catch (error) {
-        console.error('Error fetching max price:', error);
-      }
-    };
-    fetchMaxPrice();
-  }, [db]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -74,138 +54,83 @@ const Products = () => {
     fetchCategories();
   }, [db]);
 
-  const fetchSellers = async (sellerIds) => {
-    try {
-      const sellersRef = collection(db, 'users');
-      const q = query(sellersRef, where('uid', 'in', sellerIds));
-      const querySnapshot = await getDocs(q);
-      
-      const sellersData = {};
-      querySnapshot.forEach(doc => {
-        sellersData[doc.id] = doc.data();
-      });
-      setSellers(sellersData);
-    } catch (error) {
-      console.error('Error fetching sellers:', error);
-    }
-  };
-
-  const fetchReviews = async (productIds) => {
-    try {
-      const reviewsRef = collection(db, 'reviews');
-      const q = query(reviewsRef, where('productId', 'in', productIds));
-      const querySnapshot = await getDocs(q);
-      
-      const reviewsData = {};
-      querySnapshot.forEach(doc => {
-        const review = doc.data();
-        if (!reviewsData[review.productId]) {
-          reviewsData[review.productId] = [];
-        }
-        reviewsData[review.productId].push(review);
-      });
-      setReviews(reviewsData);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-    }
-  };
-
-  const calculateAverageRatings = (reviewsData) => {
-    const averages = {};
-    Object.keys(reviewsData).forEach(productId => {
-      const productReviews = reviewsData[productId];
-      const sum = productReviews.reduce((acc, review) => acc + review.rating, 0);
-      averages[productId] = sum / productReviews.length;
-    });
-    return averages;
-  };
-
   const fetchProducts = useCallback(async (loadMore = false) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
+  if (loadingRef.current) return; // prevent spam requests
+  loadingRef.current = true;
 
-    if (!loadMore) {
-      setLoading(true);
-      setHasMore(true);
-      setProducts([]);
-      setLastVisible(null);
+  if (!loadMore) {
+    setLoading(true);
+    setHasMore(true);
+    setProducts([]);
+    setLastVisible(null);
+  }
+  
+  try {
+    const productsRef = collection(db, 'products');
+    let baseQuery = query(productsRef, where('status', '==', 'active'));
+
+    if (sellerId) {
+      baseQuery = query(baseQuery, where('sellerId', '==', sellerId));
     }
-    
-    try {
-      const productsRef = collection(db, 'products');
-      let baseQuery = query(productsRef, where('status', '==', 'active'));
-
-      if (searchTerm) {
-        baseQuery = query(baseQuery, where('keywords', 'array-contains', searchTerm.toLowerCase()));
-      }
-      if (sellerId) {
-        baseQuery = query(baseQuery, where('sellerId', '==', sellerId));
-      }
-      if (selectedCategories.length > 0) {
-        baseQuery = query(baseQuery, where('category', 'in', selectedCategories));
-      }
-      if (selectedRatings.length > 0) {
-        baseQuery = query(baseQuery, where('averageRating', 'in', selectedRatings));
-      }
-      if (priceRange[0] > 0 || priceRange[1] < maxPrice) {
-        baseQuery = query(
-          baseQuery,
-          where('price', '>=', priceRange[0]),
-          where('price', '<=', priceRange[1])
-        );
-      }
-
-      let orderField = 'createdAt';
-      let orderDirection = 'desc';
-      switch (sortOption) {
-        case 'oldest': orderDirection = 'asc'; break;
-        case 'price-low': orderField = 'price'; orderDirection = 'asc'; break;
-        case 'price-high': orderField = 'price'; orderDirection = 'desc'; break;
-        case 'rating': orderField = 'averageRating'; orderDirection = 'desc'; break;
-        case 'popular': orderField = 'viewCount'; orderDirection = 'desc'; break;
-        default: break;
-      }
-
-      let productsQuery = query(
+    if (selectedCategories.length > 0) {
+      baseQuery = query(baseQuery, where('category', 'in', selectedCategories));
+    }
+    if (selectedRatings.length > 0) {
+      baseQuery = query(baseQuery, where('averageRating', 'in', selectedRatings));
+    }
+    if (priceRange[0] > 0 || priceRange[1] < 1000000) {
+      baseQuery = query(
         baseQuery,
-        orderBy(orderField, orderDirection),
-        limit(loadMore ? 10 : 20)
+        where('price', '>=', priceRange[0]),
+        where('price', '<=', priceRange[1])
       );
-
-      if (loadMore && lastVisible) {
-        productsQuery = query(productsQuery, startAfter(lastVisible));
-      }
-
-      const querySnapshot = await getDocs(productsQuery);
-
-      if (querySnapshot.docs.length > 0) {
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
-      } else {
-        setHasMore(false);
-      }
-
-      const newProducts = querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data(),
-        price: parseInt(doc.data().price) || 0
-      }));
-
-      // Fetch additional data for these products
-      const sellerIds = [...new Set(newProducts.map(p => p.sellerId))];
-      await fetchSellers(sellerIds);
-
-      const productIds = newProducts.map(p => p.id);
-      await fetchReviews(productIds);
-
-      setProducts(prev => loadMore ? [...prev, ...newProducts] : newProducts);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
     }
-  }, [db, searchTerm, sellerId, selectedCategories, selectedRatings, priceRange, sortOption, maxPrice]);
+
+    let orderField = 'createdAt';
+    let orderDirection = 'desc';
+    switch (sortOption) {
+      case 'oldest': orderDirection = 'asc'; break;
+      case 'price-low': orderField = 'price'; orderDirection = 'asc'; break;
+      case 'price-high': orderField = 'price'; orderDirection = 'desc'; break;
+      case 'rating': orderField = 'averageRating'; orderDirection = 'desc'; break;
+      case 'popular': orderField = 'viewCount'; orderDirection = 'desc'; break;
+      default: break;
+    }
+
+    let productsQuery = query(
+      baseQuery,
+      orderBy(orderField, orderDirection),
+      limit(loadMore ? 10 : 20)
+    );
+
+    if (loadMore && lastVisible) {
+      productsQuery = query(productsQuery, startAfter(lastVisible));
+    }
+
+    const querySnapshot = await getDocs(productsQuery);
+
+    if (querySnapshot.docs.length > 0) {
+      setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
+    } else {
+      setHasMore(false);
+    }
+
+    const newProducts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    setProducts(prev => loadMore ? [...prev, ...newProducts] : newProducts);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    toast.error('Failed to load products');
+  } finally {
+    setLoading(false);
+    loadingRef.current = false;
+  }
+}, [db, searchTerm, sellerId, selectedCategories, selectedRatings, priceRange, sortOption]);
+
+// Run only when filters/search change (NOT when lastVisible changes)
+useEffect(() => {
+  fetchProducts();
+}, [fetchProducts]);
 
   useEffect(() => {
     fetchProducts();
@@ -216,69 +141,30 @@ const Products = () => {
     await fetchProducts(true);
   };
 
-  const updateFilters = (newFilters) => {
-    const params = new URLSearchParams(location.search);
-
-    // Categories
-    if (newFilters.categories) {
-      setSelectedCategories(newFilters.categories);
-      if (newFilters.categories.length) {
-        params.set('category', newFilters.categories.join(','));
-      } else {
-        params.delete('category');
-      }
-    }
-
-    // Ratings
-    if (newFilters.ratings) {
-      setSelectedRatings(newFilters.ratings);
-      if (newFilters.ratings.length) {
-        params.set('rating', newFilters.ratings.join(','));
-      } else {
-        params.delete('rating');
-      }
-    }
-
-    // Price range
-    if (newFilters.price) {
-      setPriceRange(newFilters.price);
-      params.set('min', newFilters.price[0]);
-      params.set('max', newFilters.price[1]);
-    }
-
-    // Sort
-    if (newFilters.sort) {
-      setSortOption(newFilters.sort);
-      params.set('sort', newFilters.sort);
-    }
-
-    navigate(`?${params.toString()}`, { replace: true });
-    fetchProducts(false); // refetch products immediately
-  };
-
-
   const handleCategoryToggle = (category) => {
-    const updated = selectedCategories.includes(category)
-      ? selectedCategories.filter(c => c !== category)
-      : [...selectedCategories, category];
-    updateFilters({ categories: updated });
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category) 
+        : [...prev, category]
+    );
   };
 
   const handleRatingToggle = (rating) => {
-    const updated = selectedRatings.includes(rating)
-      ? selectedRatings.filter(r => r !== rating)
-      : [...selectedRatings, rating];
-    updateFilters({ ratings: updated });
+    setSelectedRatings(prev => 
+      prev.includes(rating) 
+        ? prev.filter(r => r !== rating) 
+        : [...prev, rating]
+    );
   };
 
   const handlePriceChange = (min, max) => {
-    updateFilters({ price: [min, max] });
+    setPriceRange([min, max]);
   };
 
   const resetFilters = () => {
     setSelectedCategories([]);
     setSelectedRatings([]);
-    setPriceRange([0, maxPrice]);
+    setPriceRange([0, 1000000]);
     setSortOption('newest');
   };
 
@@ -305,14 +191,6 @@ const Products = () => {
       }
     }
     return stars;
-  };
-
-  const getProductRating = (productId) => {
-    if (reviews[productId]) {
-      const sum = reviews[productId].reduce((acc, review) => acc + review.rating, 0);
-      return sum / reviews[productId].length;
-    }
-    return 0;
   };
 
   return (
@@ -385,7 +263,7 @@ const Products = () => {
                 <input
                   type="range"
                   min="0"
-                  max={maxPrice}
+                  max="1000000"
                   step="10000"
                   value={priceRange[0]}
                   onChange={(e) => handlePriceChange(parseInt(e.target.value), priceRange[1])}
@@ -394,7 +272,7 @@ const Products = () => {
                 <input
                   type="range"
                   min="0"
-                  max={maxPrice}
+                  max="1000000"
                   step="10000"
                   value={priceRange[1]}
                   onChange={(e) => handlePriceChange(priceRange[0], parseInt(e.target.value))}
@@ -432,7 +310,7 @@ const Products = () => {
                   </button>
                 </div>
                 
-                <div className="mb-6">
+                {/*<div className="mb-6">
                   <h4 className="font-medium mb-2">Categories</h4>
                   <div className="space-y-2">
                     {availableCategories.map(cat => (
@@ -450,7 +328,7 @@ const Products = () => {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div>*/}
                 
                 <div className="mb-6">
                   <h4 className="font-medium mb-2">Rating</h4>
@@ -478,7 +356,7 @@ const Products = () => {
                     <input
                       type="range"
                       min="0"
-                      max={maxPrice}
+                      max="1000000"
                       step="10000"
                       value={priceRange[0]}
                       onChange={(e) => handlePriceChange(parseInt(e.target.value), priceRange[1])}
@@ -487,7 +365,7 @@ const Products = () => {
                     <input
                       type="range"
                       min="0"
-                      max={maxPrice}
+                      max="1000000"
                       step="10000"
                       value={priceRange[1]}
                       onChange={(e) => handlePriceChange(priceRange[0], parseInt(e.target.value))}
@@ -546,7 +424,7 @@ const Products = () => {
           </div>
 
           {/* Active filters */}
-          {(selectedCategories.length > 0 || selectedRatings.length > 0 || priceRange[0] > 0 || priceRange[1] < maxPrice) && (
+          {(selectedCategories.length > 0 || selectedRatings.length > 0 || priceRange[0] > 0 || priceRange[1] < 1000000) && (
             <div className="flex flex-wrap gap-2 mb-4">
               {selectedCategories.map(category => (
                 <div key={category} className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm">
@@ -572,11 +450,11 @@ const Products = () => {
                 </div>
               ))}
               
-              {(priceRange[0] > 0 || priceRange[1] < maxPrice) && (
+              {(priceRange[0] > 0 || priceRange[1] < 1000000) && (
                 <div className="flex items-center bg-gray-100 rounded-full px-3 py-1 text-sm">
                   <span>Price: {formatPrice(priceRange[0])} - {formatPrice(priceRange[1])}</span>
                   <button 
-                    onClick={() => setPriceRange([0, maxPrice])}
+                    onClick={() => setPriceRange([0, 1000000])}
                     className="ml-2 text-gray-500 hover:text-gray-700"
                   >
                     <FaTimes size={12} />
@@ -638,92 +516,87 @@ const Products = () => {
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {products.map((product) => {
-                  const productRating = getProductRating(product.id);
-                  const productReviews = reviews[product.id] || [];
-                  
-                  return (
-                    <motion.div 
-                      key={product.id} 
-                      className="border rounded-lg p-3 hover:shadow-md transition-all bg-white cursor-pointer flex flex-col"
-                      whileHover={{ scale: 1.02 }}
-                      onClick={() => navigate(`/product/${product.id}`)}
-                      layout
-                    >
-                      <div className="relative w-full aspect-square mb-2 overflow-hidden rounded-md">
-                        <img
-                          src={product.photos?.[0] || '/placeholder-product.jpg'}
-                          alt={product.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = '/placeholder-product.jpg';
-                          }}
-                        />
-                        
-                        {product.discount && (
-                          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                            {product.discount}%
-                          </div>
-                        )}
-
-                        {productRating > 0 && (
-                          <div className="absolute bottom-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded-full flex items-center text-xs">
-                            {renderRatingStars(productRating)}
-                            <span className="ml-1 text-gray-700">{productRating.toFixed(1)}</span>
-                          </div>
-                        )}
-                      </div>
-
+                {products.map((product) => (
+                  <motion.div 
+                    key={product.id} 
+                    className="border rounded-lg p-3 hover:shadow-md transition-all bg-white cursor-pointer flex flex-col"
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    layout
+                  >
+                    <div className="relative w-full aspect-square mb-2 overflow-hidden rounded-md">
+                      <img
+                        src={product.photos?.[0] || '/placeholder-product.jpg'}
+                        alt={product.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = '/placeholder-product.jpg';
+                        }}
+                      />
                       
-                      <h2 className="text-sm font-semibold line-clamp-2 mb-1 flex-grow">
-                        {product.title}
-                      </h2>
-                      
-                      {product.sellerId && sellers[product.sellerId] && (
-                        <div 
-                          className="flex items-center mt-1 mb-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/products?seller=${product.sellerId}`);
-                          }}
-                        >
-                          <div className="w-5 h-5 rounded-full bg-gray-200 mr-1 overflow-hidden">
-                            {sellers[product.sellerId].photoURL ? (
-                              <img 
-                                src={sellers[product.sellerId].photoURL} 
-                                alt={sellers[product.sellerId].name || 'Seller'} 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = '';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
-                                {sellers[product.sellerId].name?.charAt(0) || 'S'}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-600 truncate">
-                            {sellers[product.sellerId].name || product.sellerName || 'Seller'}
-                          </span>
+                      {product.discount && (
+                        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                          {product.discount}%
                         </div>
                       )}
-                      
-                      <div className="mt-auto">
-                        <p className="text-[#bd2c30] text-sm font-bold">
-                          {formatPrice(product.price)}
-                        </p>
-                        {product.originalPrice && (
-                          <p className="text-xs text-gray-500 line-through">
-                            {formatPrice(product.originalPrice)}
-                          </p>
-                        )}
+
+                      {product.averageRating > 0 && (
+                        <div className="absolute bottom-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded-full flex items-center text-xs">
+                          {renderRatingStars(product.averageRating)}
+                          <span className="ml-1 text-gray-700">{product.averageRating.toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    
+                    <h2 className="text-sm font-semibold line-clamp-2 mb-1 flex-grow">
+                      {product.title}
+                    </h2>
+                    
+                    {product.sellerId && sellers[product.sellerId] && (
+                      <div 
+                        className="flex items-center mt-1 mb-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/products?seller=${product.sellerId}`);
+                        }}
+                      >
+                        <div className="w-5 h-5 rounded-full bg-gray-200 mr-1 overflow-hidden">
+                          {sellers[product.sellerId].photoURL ? (
+                            <img 
+                              src={sellers[product.sellerId].photoURL} 
+                              alt={sellers[product.sellerId].name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = '';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                              {sellers[product.sellerId].name?.charAt(0) || 'S'}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-600 truncate">
+                          {sellers[product.sellerId].name || 'Seller'}
+                        </span>
                       </div>
-                    </motion.div>
-                  );
-                })}
+                    )}
+                    
+                    <div className="mt-auto">
+                      <p className="text-[#bd2c30] text-sm font-bold">
+                        {formatPrice(product.price)}
+                      </p>
+                      {product.originalPrice && (
+                        <p className="text-xs text-gray-500 line-through">
+                          {formatPrice(product.originalPrice)}
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
               </div>
               
               {hasMore && (

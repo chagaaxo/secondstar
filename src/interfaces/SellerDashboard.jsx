@@ -332,7 +332,7 @@ const SellerDashboard = () => {
           
           <nav className="space-y-1">
             <NavLink
-              to="/seller"
+              to="/seller-dashboard"
               end
               className={({isActive}) => `flex items-center px-3 py-3 rounded-lg ${isActive ? 'bg-[#bd2c3144] text-[#bd2c30]' : 'hover:bg-gray-100'}`}
             >
@@ -340,14 +340,14 @@ const SellerDashboard = () => {
               Overview
             </NavLink>
             <NavLink
-              to="/seller/products"
+              to="/products"
               className={({isActive}) => `flex items-center px-3 py-3 rounded-lg ${isActive ? 'bg-[#bd2c3144] text-[#bd2c30]' : 'hover:bg-gray-100'}`}
             >
               <FiPackage className="mr-3" />
               Products
             </NavLink>
             <NavLink
-              to="/seller/settings"
+              to="/settings"
               className={({isActive}) => `flex items-center px-3 py-3 rounded-lg ${isActive ? 'bg-[#bd2c3144] text-[#bd2c30]' : 'hover:bg-gray-100'}`}
             >
               <FiSettings className="mr-3" />
